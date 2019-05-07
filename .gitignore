@@ -56,5 +56,9 @@ typings/
 
 # dotenv environment variables file
 .env
-html/
+
+resources/gcphone/html
 **/node_modules/
+**/package-lock.json
+
+gcphone.zip

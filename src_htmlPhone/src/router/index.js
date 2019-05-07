@@ -4,12 +4,12 @@ import Router from 'vue-router'
 import Home from '@/components/Home'
 import Menu from '@/components/Menu'
 
-import Contacts from '@/components/Contacts/Contacts'
-import Contact from '@/components/Contacts/Contact'
+import Contacts from '@/components/contacts/Contacts'
+import Contact from '@/components/contacts/Contact'
 
-import MessagesList from '@/components/Messages/MessagesList'
-import Messages from '@/components/Messages/Messages'
-import MessageContactsSelect from '@/components/Messages/MessageContactsSelect'
+import MessagesList from '@/components/messages/MessagesList'
+import Messages from '@/components/messages/Messages'
+import MessageContactsSelect from '@/components/messages/MessageContactsSelect'
 
 import Appels from '@/components/Appels/Appels'
 import AppelsActive from '@/components/Appels/AppelsActive'
@@ -19,10 +19,15 @@ import TchatSplashScreen from '@/components/Tchat/TchatSplashScreen'
 import TchatChannel from '@/components/Tchat/TchatChannel'
 import TchatMessage from '@/components/Tchat/TchatMessage'
 
-import Parametre from '@/components/Parametre/Parametre'
+import TwitterSpashScreen from '@/components/twitter/TwitterSpashScreen'
+import TwitterScreen from '@/components/twitter/TwitterScreen'
+
+import Parametre from '@/components/parametre/Parametre'
 import Bank from '@/components/Bank/Bank'
 import Bourse from '@/components/Bourse/Bourse'
 import Photo from '@/components/Photo/Photo'
+
+import App9GAG from '@/components/App9GAG'
 
 Vue.use(Router)
 
@@ -102,6 +107,18 @@ export default new Router({
       path: '/tchat/:channel',
       name: 'tchat.channel.show',
       component: TchatMessage
+    }, {
+      path: '/twitter/splash',
+      name: 'twitter.splash',
+      component: TwitterSpashScreen
+    }, {
+      path: '/twitter/view',
+      name: 'twitter.screen',
+      component: TwitterScreen
+    }, {
+      path: '/9gag',
+      name: '9gag',
+      component: App9GAG
     }, {
       path: '*',
       redirect: '/'

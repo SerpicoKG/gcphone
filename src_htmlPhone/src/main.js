@@ -2,25 +2,27 @@ import Vue from 'vue'
 import App from './App'
 import router from './router'
 import store from './store'
-import VueTimeago from 'vue-timeago'
+import VueTimeago from './TimeAgo'
 import PhoneAPI from './PhoneAPI'
+import Notification from './Notification'
 
-Vue.use(VueTimeago, {
-  name: 'timeago',
-  locale: 'fr-FR',
-  locales: {
-    'fr-FR': require('vue-timeago/locales/fr-FR.json')
-  }
-})
+import AutoFocus from './directives/autofocus'
+
+Vue.use(VueTimeago)
+Vue.use(Notification)
 Vue.config.productionTip = false
 
 Vue.prototype.$bus = new Vue()
 Vue.prototype.$phoneAPI = PhoneAPI
 
-window.DDD = store
+window.VueTimeago = VueTimeago
+window.Vue = Vue
+window.store = store
+
+Vue.directive('autofocus', AutoFocus)
 
 /* eslint-disable no-new */
-new Vue({
+window.APP = new Vue({
   el: '#app',
   store,
   router,

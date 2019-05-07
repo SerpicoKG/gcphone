@@ -1,12 +1,15 @@
 <template>
-<div v-if="show === true" :style="{zoom: zoom}">
-  <div class="phone_wrapper">
-    <div class="phone_coque" :style="{backgroundImage: 'url(/html/static/img/coque/' + coque.value + ')'}"></div>
-    <div id="app" class="phone_screen">
-      <router-view></router-view>
+  <div style="height: 100vh; width: 100vw;" @contextmenu="closePhone">
+    <notification />
+    <div v-if="show === true && tempoHide === false" :style="{zoom: zoom}" @contextmenu.stop>
+      <div class="phone_wrapper">
+        <div class="phone_coque" :style="{backgroundImage: 'url(/html/static/img/coque/' + coque.value + ')'}"></div>
+        <div id="app" class="phone_screen">
+          <router-view></router-view>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 </template>
 
 <script>
@@ -24,10 +27,13 @@ export default {
     }
   },
   methods: {
-    ...mapActions(['loadConfig', 'rejectCall'])
+    ...mapActions(['loadConfig', 'rejectCall']),
+    closePhone () {
+      this.$phoneAPI.closePhone()
+    }
   },
   computed: {
-    ...mapGetters(['show', 'zoom', 'coque', 'appelsInfo', 'myPhoneNumber', 'volume'])
+    ...mapGetters(['show', 'zoom', 'coque', 'appelsInfo', 'myPhoneNumber', 'volume', 'tempoHide'])
   },
   watch: {
     appelsInfo (newValue, oldValue) {
@@ -35,7 +41,7 @@ export default {
         if (this.soundCall !== null) {
           this.soundCall.pause()
         }
-        if (this.myPhoneNumber === this.appelsInfo.transmitter_num) {
+        if (this.appelsInfo.initiator === true) {
           this.soundCall = new Audio('/html/static/sound/Phone_Call_Sound_Effect.ogg')
         } else {
           this.soundCall = new Audio('/html/static/sound/ring.ogg')
@@ -61,12 +67,12 @@ export default {
       } else {
         this.$router.push({name: 'home'})
       }
-      if (this.show === false && this.appelsInfo !== null && this.appelsInfo.is_accepts === true) {
+      if (this.show === false && this.appelsInfo !== null) {
         this.rejectCall()
       }
     }
   },
-  mounted: function () {
+  mounted () {
     this.loadConfig()
     window.addEventListener('message', (event) => {
       if (event.data.keyUp !== undefined) {
@@ -78,21 +84,10 @@ export default {
       if (keyValid.indexOf(event.key) !== -1) {
         this.$bus.$emit('keyUp' + event.key)
       }
+      if (event.key === 'Escape') {
+        this.$phoneAPI.closePhone()
+      }
     })
-    // setTimeout(() => {
-    //   this.$store.commit('SET_APPELS_INFO', {
-    //     id: 1,
-    //     transmitter_src: 5,
-    //     // transmitter_num: '###-####',
-    //     transmitter_num: '336-4557',
-    //     receiver_src: undefined,
-    //     // receiver_num: '336-4557',
-    //     receiver_num: '###-####',
-    //     is_valid: 0,
-    //     is_accepts: 0,
-    //     hidden: 0
-    //   })
-    // }, 1000)
   }
 }
 </script>

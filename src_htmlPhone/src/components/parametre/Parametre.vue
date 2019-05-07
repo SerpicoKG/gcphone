@@ -1,15 +1,17 @@
 <template>
   <div class="phone_app">
-    <PhoneTitle title="Paramètres" />
+    <PhoneTitle :title="IntlString('APP_CONFIG_TITLE')" @back="onBackspace"/>
     <div class='phone_content elements'>
       <div class='element'
           v-for='(elem, key) in paramList' 
           v-bind:class="{ select: key === currentSelect}"
-          v-bind:key="key">
-        <i class="fa" v-bind:class="elem.icons" v-bind:style="{color: elem.color}"></i>
-        <div class="element-content">
-          <span class="element-title">{{elem.title}}</span>
-          <span v-if="elem.value" class="element-value">{{elem.value}}</span>
+          v-bind:key="key"
+          @click.stop="onPressItem(key)"  
+        >
+        <i class="fa" v-bind:class="elem.icons" v-bind:style="{color: elem.color}" @click.stop="onPressItem(key)"></i>
+        <div class="element-content" @click.stop="onPressItem(key)">
+          <span class="element-title" @click.stop="onPressItem(key)">{{elem.title}}</span>
+          <span v-if="elem.value" class="element-value" @click.stop="onPressItem(key)">{{elem.value}}</span>
         </div>
       </div>
     </div>
@@ -33,31 +35,37 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(['myPhoneNumber', 'backgroundLabel', 'coqueLabel', 'zoom', 'config', 'volume']),
+    ...mapGetters(['IntlString', 'useMouse', 'myPhoneNumber', 'backgroundLabel', 'coqueLabel', 'zoom', 'config', 'volume', 'availableLanguages']),
     paramList () {
+      const cancelStr = this.IntlString('CANCEL')
+      const confirmResetStr = this.IntlString('APP_CONFIG_RESET_CONFIRM')
+      const cancelOption = {}
+      const confirmReset = {}
+      cancelOption[cancelStr] = 'cancel'
+      confirmReset[confirmResetStr] = 'accept'
       return [
         {
           icons: 'fa-phone',
-          title: 'Mon numéro',
+          title: this.IntlString('APP_CONFIG_MY_MUNBER'),
           value: this.myPhoneNumber
         },
         {
           icons: 'fa-picture-o',
-          title: 'Fond d\'écran',
+          title: this.IntlString('APP_CONFIG_WALLPAPER'),
           value: this.backgroundLabel,
           onValid: 'onChangeBackground',
           values: this.config.background
         },
         {
           icons: 'fa-mobile',
-          title: 'Coque telephone',
+          title: this.IntlString('APP_CONFIG_CASE'),
           value: this.coqueLabel,
           onValid: 'onChangeCoque',
           values: this.config.coque
         },
         {
           icons: 'fa-search',
-          title: 'Zoom',
+          title: this.IntlString('APP_CONFIG_ZOOM'),
           value: this.zoom,
           onValid: 'setZoom',
           onLeft: this.ajustZoom(-1),
@@ -73,7 +81,7 @@ export default {
         },
         {
           icons: 'fa-volume-down',
-          title: 'Volume',
+          title: this.IntlString('APP_CONFIG_VOLUME'),
           value: this.valumeDisplay,
           onValid: 'setPhoneVolume',
           onLeft: this.ajustVolume(-0.01),
@@ -88,13 +96,32 @@ export default {
           }
         },
         {
+          icons: 'fa-globe',
+          title: this.IntlString('APP_CONFIG_LANGUAGE'),
+          onValid: 'onChangeLanguages',
+          values: {
+            ...this.availableLanguages,
+            ...cancelOption
+          }
+        },
+        {
+          icons: 'fa-mouse-pointer',
+          title: this.IntlString('APP_CONFIG_MOUSE_SUPPORT'),
+          onValid: 'onChangeMouseSupport',
+          values: {
+            'Yes': true,
+            'No': false,
+            ...cancelOption
+          }
+        },
+        {
           icons: 'fa-exclamation-triangle',
           color: '#c0392b',
-          title: 'Formater',
+          title: this.IntlString('APP_CONFIG_RESET'),
           onValid: 'resetPhone',
           values: {
-            'TOUT SUPPRIMER': 'accept',
-            'Annuler': 'cancel'
+            ...confirmReset,
+            ...cancelOption
           }
         }
       ]
@@ -104,13 +131,13 @@ export default {
     }
   },
   methods: {
-    ...mapActions(['setZoon', 'setBackground', 'setCoque', 'setVolume']),
+    ...mapActions(['getIntlString', 'setZoon', 'setBackground', 'setCoque', 'setVolume', 'setLanguage', 'setMouseSupport']),
     scrollIntoViewIfNeeded: function () {
       this.$nextTick(() => {
         document.querySelector('.select').scrollIntoViewIfNeeded()
       })
     },
-    onBackspace: function () {
+    onBackspace () {
       if (this.ignoreControls === true) return
       this.$router.push({ name: 'home' })
     },
@@ -138,9 +165,7 @@ export default {
         param.onLeft(param)
       }
     },
-    onEnter: function () {
-      if (this.ignoreControls === true) return
-      let param = this.paramList[this.currentSelect]
+    actionItem (param) {
       if (param.values !== undefined) {
         this.ignoreControls = true
         let choix = Object.keys(param.values).map(key => {
@@ -153,14 +178,28 @@ export default {
         })
       }
     },
-    onChangeBackground: function (param, data) {
+    onPressItem (index) {
+      this.actionItem(this.paramList[index])
+    },
+    onEnter () {
+      if (this.ignoreControls === true) return
+      this.actionItem(this.paramList[this.currentSelect])
+    },
+    async onChangeBackground (param, data) {
       let val = data.value
       if (val === 'URL') {
-        this.$phoneAPI.getReponseText().then(valueText => {
-          this.setBackground({
-            label: 'Custom',
-            value: valueText.text
-          })
+        this.ignoreControls = true
+        Modal.CreateTextModal({
+          text: 'https://i.imgur.com/'
+        }).then(valueText => {
+          if (valueText.text !== '' && valueText.text !== undefined && valueText.text !== null && valueText.text !== 'https://i.imgur.com/') {
+            this.setBackground({
+              label: 'Custom',
+              value: valueText.text
+            })
+          }
+        }).finally(() => {
+          this.ignoreControls = false
         })
       } else {
         this.setBackground({
@@ -193,13 +232,26 @@ export default {
         this.setVolume(newVolume)
       }
     },
+    onChangeLanguages (param, data) {
+      if (data.value !== 'cancel') {
+        this.setLanguage(data.value)
+      }
+    },
+    onChangeMouseSupport (param, data) {
+      if (data.value !== 'cancel') {
+        this.setMouseSupport(data.value)
+        this.onBackspace()
+      }
+    },
     resetPhone: function (param, data) {
-      if (data.title !== 'Annuler') {
+      if (data.value !== 'cancel') {
         this.ignoreControls = true
-        let choix = [{title: 'Annuler'}, {title: 'Annuler'}, {title: 'EFFACER', color: 'red'}, {title: 'Annuler'}, {title: 'Annuler'}]
+        const cancelStr = this.IntlString('CANCEL')
+        const confirmResetStr = this.IntlString('APP_CONFIG_RESET_CONFIRM')
+        let choix = [{title: cancelStr}, {title: cancelStr}, {title: confirmResetStr, color: 'red', reset: true}, {title: cancelStr}, {title: cancelStr}]
         Modal.CreateModal({choix}).then(reponse => {
           this.ignoreControls = false
-          if (reponse.title === 'EFFACER') {
+          if (reponse.reset === true) {
             this.$phoneAPI.deleteALL()
           }
         })
@@ -207,15 +259,19 @@ export default {
     }
   },
 
-  created: function () {
-    this.$bus.$on('keyUpArrowRight', this.onRight)
-    this.$bus.$on('keyUpArrowLeft', this.onLeft)
-    this.$bus.$on('keyUpArrowDown', this.onDown)
-    this.$bus.$on('keyUpArrowUp', this.onUp)
-    this.$bus.$on('keyUpEnter', this.onEnter)
+  created () {
+    if (!this.useMouse) {
+      this.$bus.$on('keyUpArrowRight', this.onRight)
+      this.$bus.$on('keyUpArrowLeft', this.onLeft)
+      this.$bus.$on('keyUpArrowDown', this.onDown)
+      this.$bus.$on('keyUpArrowUp', this.onUp)
+      this.$bus.$on('keyUpEnter', this.onEnter)
+    } else {
+      this.currentSelect = -1
+    }
     this.$bus.$on('keyUpBackspace', this.onBackspace)
   },
-  beforeDestroy: function () {
+  beforeDestroy () {
     this.$bus.$off('keyUpArrowRight', this.onRight)
     this.$bus.$off('keyUpArrowLeft', this.onLeft)
     this.$bus.$off('keyUpArrowDown', this.onDown)
@@ -265,7 +321,7 @@ export default {
   font-size: 16px;
   color: #808080;
 }
-.element.select{
+.element.select, .element:hover{
    background-color: #DDD;
 }
 </style>

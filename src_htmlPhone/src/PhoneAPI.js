@@ -1,7 +1,11 @@
 import store from '@/store'
 import VoiceRTC from './VoiceRCT'
+import Vue from 'vue'
 
-const USE_VOICE_RTC = true
+import emoji from './emoji.json'
+const keyEmoji = Object.keys(emoji)
+
+let USE_VOICE_RTC = false
 const BASE_URL = 'http://gcphone/'
 
 /* eslint-disable camelcase */
@@ -16,7 +20,8 @@ class PhoneAPI {
       }
     })
     this.config = null
-    this.voiceRTC = new VoiceRTC()
+    this.voiceRTC = null
+    this.soundList = {}
   }
 
   async post (method, data) {
@@ -31,6 +36,13 @@ class PhoneAPI {
     } else {
       return console.log(...data)
     }
+  }
+
+  convertEmoji (text) {
+    for (const e of keyEmoji) {
+      text = text.replace(new RegExp(`:${e}:`, 'g'), emoji[e])
+    }
+    return text
   }
 
   // === Gestion des messages
@@ -73,11 +85,17 @@ class PhoneAPI {
   async closePhone () {
     return this.post('closePhone')
   }
+  async setUseMouse (useMouse) {
+    return this.post('useMouse', useMouse)
+  }
   async setGPS (x, y) {
     return this.post('setGPS', {x, y})
   }
   async takePhoto () {
-    return this.post('takePhoto')
+    store.commit('SET_TEMPO_HIDE', true)
+    const data = await this.post('takePhoto', { url: this.config.fileUploadService_Url, field: this.config.fileUploadService_Field })
+    store.commit('SET_TEMPO_HIDE', false)
+    return data
   }
   async getReponseText (data) {
     if (process.env.NODE_ENV === 'production') {
@@ -86,26 +104,23 @@ class PhoneAPI {
       return {text: window.prompt()}
     }
   }
+
+  async faketakePhoto () {
+    return this.post('faketakePhoto')
+  }
+
   async callEvent (eventName, data) {
     return this.post('callEvent', {eventName, data})
   }
   async deleteALL () {
     localStorage.clear()
-    console.log('tchatReset')
     store.dispatch('tchatReset')
-    console.log('resetPhone')
     store.dispatch('resetPhone')
-    console.log('resetMessage')
     store.dispatch('resetMessage')
-    console.log('resetContact')
     store.dispatch('resetContact')
-    console.log('resetBourse')
     store.dispatch('resetBourse')
-    console.log('resetAppels')
     store.dispatch('resetAppels')
-    console.log('event: deleteALL')
     return this.post('deleteALL')
-    // store.dispatch('resetbank') //
   }
   async getConfig () {
     if (this.config === null) {
@@ -115,10 +130,22 @@ class PhoneAPI {
       } else {
         this.config = response
       }
-      this.voiceRTC = new VoiceRTC(this)
-      window.VR = this.voiceRTC
+      if (this.config.useWebRTCVocal === true) {
+        this.voiceRTC = new VoiceRTC(this.config.RTCConfig)
+        USE_VOICE_RTC = true
+      }
+      // console.log('JS USE RTC', this.config.useWebRTCVocal)
+      this.notififyUseRTC(this.config.useWebRTCVocal)
     }
     return this.config
+  }
+
+  async onsetEnableApp (data) {
+    store.dispatch('setEnableApp', data)
+  }
+
+  async setIgnoreFocus (ignoreFocus) {
+    this.post('setIgnoreFocus', { ignoreFocus })
   }
 
   // === App Tchat
@@ -154,16 +181,15 @@ class PhoneAPI {
     store.commit('SET_BOURSE_INFO', data.bourse)
   }
   // Call
-  async startCall (numero) {
+  async startCall (numero, extraData = undefined) {
     if (USE_VOICE_RTC === true) {
       const rtcOffer = await this.voiceRTC.prepareCall()
-      return this.post('startCall', { numero, rtcOffer })
+      return this.post('startCall', { numero, rtcOffer, extraData })
     } else {
-      return this.post('startCall', { numero })
+      return this.post('startCall', { numero, extraData })
     }
   }
   async acceptCall (infoCall) {
-    console.log('JS phoneAPI acceptCall')
     if (USE_VOICE_RTC === true) {
       const rtcAnswer = await this.voiceRTC.acceptCall(infoCall)
       return this.post('acceptCall', { infoCall, rtcAnswer })
@@ -174,14 +200,16 @@ class PhoneAPI {
   async rejectCall (infoCall) {
     return this.post('rejectCall', { infoCall })
   }
+
+  async notififyUseRTC (use) {
+    return this.post('notififyUseRTC', use)
+  }
+
   onwaitingCall (data) {
     store.commit('SET_APPELS_INFO_IF_EMPTY', {
       ...data.infoCall,
       initiator: data.initiator
     })
-    // this.voiceRTC.addEventListener('onCandidate', (candidates) => {
-    //   this.post('onCandidates', { id: data.infoCall.id, candidates })
-    // })
   }
   onacceptCall (data) {
     if (USE_VOICE_RTC === true) {
@@ -213,11 +241,98 @@ class PhoneAPI {
 
   // =====================
   onautoStartCall (data) {
-    this.startCall(data.number)
+    this.startCall(data.number, data.extraData)
   }
   onautoAcceptCall (data) {
     store.commit('SET_APPELS_INFO', data.infoCall)
     this.acceptCall(data.infoCall)
+  }
+
+  // === Twitter
+  twitter_login (username, password) {
+    this.post('twitter_login', {username, password})
+  }
+  twitter_changePassword (username, password, newPassword) {
+    this.post('twitter_changePassword', {username, password, newPassword})
+  }
+  twitter_createAccount (username, password, avatarUrl) {
+    this.post('twitter_createAccount', {username, password, avatarUrl})
+  }
+  twitter_postTweet (username, password, message) {
+    this.post('twitter_postTweet', { username, password, message })
+  }
+  twitter_postTweetImg (username, password, img) {
+    this.post('twitter_postTweetImg', { username, password, img })
+  }
+  twitter_toggleLikeTweet (username, password, tweetId) {
+    this.post('twitter_toggleLikeTweet', { username, password, tweetId })
+  }
+  twitter_setAvatar (username, password, avatarUrl) {
+    this.post('twitter_setAvatarUrl', { username, password, avatarUrl })
+  }
+  twitter_getTweets (username, password) {
+    this.post('twitter_getTweets', { username, password })
+  }
+  twitter_getFavoriteTweets (username, password) {
+    this.post('twitter_getFavoriteTweets', { username, password })
+  }
+  ontwitter_tweets (data) {
+    store.commit('SET_TWEETS', data)
+  }
+  ontwitter_favoritetweets (data) {
+    store.commit('SET_FAVORITE_TWEETS', data)
+  }
+  ontwitter_newTweet (data) {
+    store.dispatch('addTweet', data.tweet)
+  }
+  ontwitter_setAccount (data) {
+    store.dispatch('setAccount', data)
+  }
+  ontwitter_updateTweetLikes (data) {
+    store.commit('UPDATE_TWEET_LIKE', data)
+  }
+  ontwitter_setTweetLikes (data) {
+    store.commit('UPDATE_TWEET_ISLIKE', data)
+  }
+  ontwitter_showError (data) {
+    Vue.notify({
+      title: store.getters.IntlString(data.title, ''),
+      message: store.getters.IntlString(data.message),
+      icon: 'twitter',
+      backgroundColor: '#e0245e80'
+    })
+  }
+  ontwitter_showSuccess (data) {
+    Vue.notify({
+      title: store.getters.IntlString(data.title, ''),
+      message: store.getters.IntlString(data.message),
+      icon: 'twitter'
+    })
+  }
+
+  onplaySound ({ sound, volume = 1 }) {
+    if (!sound) return
+    if (this.soundList[sound] !== undefined) {
+      this.soundList[sound].volume = volume
+    } else {
+      this.soundList[sound] = new Audio('/html/static/sound/' + sound)
+      this.soundList[sound].loop = true
+      this.soundList[sound].volume = volume
+      this.soundList[sound].play()
+    }
+  }
+
+  onsetSoundVolume ({ sound, volume = 1 }) {
+    if (this.soundList[sound] !== undefined) {
+      this.soundList[sound].volume = volume
+    }
+  }
+
+  onstopSound ({ sound }) {
+    if (this.soundList[sound] !== undefined) {
+      this.soundList[sound].pause()
+      delete this.soundList[sound]
+    }
   }
 
 }

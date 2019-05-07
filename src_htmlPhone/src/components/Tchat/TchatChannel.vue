@@ -1,12 +1,13 @@
 <template>
   <div class="phone_app">
-    <PhoneTitle title="Tor Chat" backgroundColor="#090f20" />
-    <div class="elements">
+    <PhoneTitle :title="IntlString('APP_DARKTCHAT_TITLE')" backgroundColor="#090f20" @back="onBack" />
+    <div class="elements" @contextmenu.prevent="addChannelOption">
         <div class="element" v-for='(elem, key) in tchatChannels' 
           v-bind:key="elem.channel"
           v-bind:class="{ select: key === currentSelect}"
+          @click.stop="showChannel(elem.channel)"
           >
-            <div class="elem-title"><span class="diese">#</span> {{elem.channel}}</div>
+            <div class="elem-title" @click.stop="showChannel(elem.channel)"><span class="diese">#</span> {{elem.channel}}</div>
         </div>
     </div>
   </div>
@@ -31,13 +32,16 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(['tchatChannels'])
+    ...mapGetters(['IntlString', 'useMouse', 'tchatChannels', 'Apps'])
   },
   methods: {
     ...mapActions(['tchatAddChannel', 'tchatRemoveChannel']),
     scrollIntoViewIfNeeded () {
       this.$nextTick(() => {
-        this.$el.querySelector('.select').scrollIntoViewIfNeeded()
+        const $select = this.$el.querySelector('.select')
+        if ($select !== null) {
+          $select.scrollIntoViewIfNeeded()
+        }
       })
     },
     onUp () {
@@ -54,9 +58,9 @@ export default {
       if (this.ignoreControls === true) return
       this.ignoreControls = true
       let choix = [
-        {id: 1, title: 'Ajouter un channel.', icons: 'fa-plus', color: 'green'},
-        {id: 2, title: 'Effacer', icons: 'fa-circle-o', color: 'orange'},
-        {id: 3, title: 'Retour', icons: 'fa-undo'}
+        {id: 1, title: this.IntlString('APP_DARKTCHAT_NEW_CHANNEL'), icons: 'fa-plus', color: 'green'},
+        {id: 2, title: this.IntlString('APP_DARKTCHAT_DELETE_CHANNEL'), icons: 'fa-minus', color: 'orange'},
+        {id: 3, title: this.IntlString('APP_DARKTCHAT_CANCEL'), icons: 'fa-undo'}
       ]
       if (this.tchatChannels.length === 0) {
         choix.splice(1, 1)
@@ -78,8 +82,8 @@ export default {
       if (this.tchatChannels.length === 0) {
         this.ignoreControls = true
         let choix = [
-          {id: 1, title: 'Ajouter un channel.', icons: 'fa-plus', color: 'green'},
-          {id: 3, title: 'Retour', icons: 'fa-undo'}
+          {id: 1, title: this.IntlString('APP_DARKTCHAT_NEW_CHANNEL'), icons: 'fa-plus', color: 'green'},
+          {id: 3, title: this.IntlString('APP_DARKTCHAT_CANCEL'), icons: 'fa-undo'}
         ]
         const rep = await Modal.CreateModal({ choix })
         this.ignoreControls = false
@@ -88,34 +92,45 @@ export default {
         }
       } else {
         const channel = this.tchatChannels[this.currentSelect].channel
-        this.$router.push({ name: 'tchat.channel.show', params: { channel } })
+        this.showChannel(channel)
       }
+    },
+    showChannel (channel) {
+      this.$router.push({ name: 'tchat.channel.show', params: { channel } })
     },
     onBack () {
       if (this.ignoreControls === true) return
       this.$router.push({ name: 'home' })
     },
     async addChannelOption () {
-      const rep = await this.$phoneAPI.getReponseText({limit: 20})
-      let channel = (rep || {}).text || ''
-      channel = channel.toLowerCase().replace(/[^a-z]/g, '')
-      if (channel.length > 0) {
-        this.tchatAddChannel({ channel })
-      }
+      try {
+        const rep = await Modal.CreateTextModal({limit: 20, title: this.IntlString('APP_DARKTCHAT_NEW_CHANNEL')})
+        let channel = (rep || {}).text || ''
+        channel = channel.toLowerCase().replace(/[^a-z]/g, '')
+        if (channel.length > 0) {
+          this.currentSelect = 0
+          this.tchatAddChannel({ channel })
+        }
+      } catch (e) {}
     },
     async removeChannelOption () {
       const channel = this.tchatChannels[this.currentSelect].channel
+      this.currentSelect = 0
       this.tchatRemoveChannel({ channel })
     }
   },
-  created: function () {
-    this.$bus.$on('keyUpArrowDown', this.onDown)
-    this.$bus.$on('keyUpArrowUp', this.onUp)
-    this.$bus.$on('keyUpArrowRight', this.onRight)
-    this.$bus.$on('keyUpEnter', this.onEnter)
-    this.$bus.$on('keyUpBackspace', this.onBack)
+  created () {
+    if (!this.useMouse) {
+      this.$bus.$on('keyUpArrowDown', this.onDown)
+      this.$bus.$on('keyUpArrowUp', this.onUp)
+      this.$bus.$on('keyUpArrowRight', this.onRight)
+      this.$bus.$on('keyUpEnter', this.onEnter)
+      this.$bus.$on('keyUpBackspace', this.onBack)
+    } else {
+      this.currentSelect = -1
+    }
   },
-  beforeDestroy: function () {
+  beforeDestroy () {
     this.$bus.$off('keyUpArrowDown', this.onDown)
     this.$bus.$off('keyUpArrowUp', this.onUp)
     this.$bus.$off('keyUpArrowRight', this.onRight)
@@ -126,9 +141,6 @@ export default {
 </script>
 
 <style scoped>
-.infobare{
-  background-color: ;
-}
 .list{
   height: 100%;
 }
@@ -138,7 +150,6 @@ export default {
   height: 54px;
   line-height: 34px;
   font-weight: 700;
-  background-color: #0;
   color: white;
 }
 
@@ -169,14 +180,14 @@ export default {
   line-height: 40px;
 }
 
-.element.select{
+.element.select, .element:hover{
    background-color: #FFC629;
    color: black;
 }
-.element.select  .elem-title {
+.element.select .elem-title, .element:hover .elem-title {
    margin-left: 12px;
 }
-.element.select .elem-title .diese {
+.element.select .elem-title .diese, .element:hover .elem-title .diese {
    color:#5e0576;
 }
  .elements::-webkit-scrollbar-track
