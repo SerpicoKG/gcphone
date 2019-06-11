@@ -1,6 +1,8 @@
 
 ui_page 'html/index.html'
 
+dependency "vrp"
+
 files {
 	'html/index.html',
 	'html/static/css/app.css',
@@ -9,18 +11,21 @@ files {
 	'html/static/js/vendor.js',
 
 	'html/static/config/config.json',
-	
+
 	-- Coque
 	'html/static/img/coque/s8.png',
 	'html/static/img/coque/iphonex.png',
 	'html/static/img/coque/base.png',
 	'html/static/img/coque/transparent.png',
-	
+
 	-- Background
 	'html/static/img/background/back001.jpg',
 	'html/static/img/background/back002.jpg',
 	'html/static/img/background/back003.jpg',
-	
+	'html/static/img/background/BLRPbackground.jpg',
+	'html/static/img/background/PDbackground.jpg',
+	'html/static/img/background/EMSbackground.jpg',
+
 	'html/static/img/icons_app/call.png',
 	'html/static/img/icons_app/contacts.png',
 	'html/static/img/icons_app/sms.png',
@@ -32,7 +37,7 @@ files {
 	'html/static/img/icons_app/bank.png',
 	'html/static/img/icons_app/9gag.png',
 	'html/static/img/icons_app/twitter.png',
-	
+
 	'html/static/img/app_bank/logo_mazebank.jpg',
 
 	'html/static/img/app_tchat/splashtchat.png',
@@ -46,12 +51,15 @@ files {
 
 	'html/static/sound/ring.ogg',
 	'html/static/sound/ring2.ogg',
+	'html/static/sound/ring3.ogg',
 	'html/static/sound/tchatNotification.ogg',
 	'html/static/sound/Phone_Call_Sound_Effect.ogg',
 
 }
 
 client_script {
+	"@vrp/client/Tunnel.lua",
+	"@vrp/client/Proxy.lua",
 	"config.lua",
 	"client/animation.lua",
 	"client/client.lua",
@@ -64,6 +72,7 @@ client_script {
 
 server_script {
 	'@mysql-async/lib/MySQL.lua',
+	"@vrp/lib/utils.lua",
 	"config.lua",
 	"server/server.lua",
 

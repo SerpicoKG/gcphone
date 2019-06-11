@@ -1,7 +1,14 @@
+vRPphone = {}
+Tunnel.bindInterface("vrp_phone",vRPphone)
+vRPserver = Tunnel.getInterface("vRP","vrp_phone")
+--MENUserver = Tunnel.getInterface("vrp_menu","vrp_menu")
+Proxy.addInterface("vrp_phone",vRPphone)
+vRP = Proxy.getInterface("vRP")
+
 --====================================================================================
 -- #Author: Jonathan D @ Gannon
 --====================================================================================
- 
+
 -- Configuration
 local KeyToucheCloseEvent = {
   { code = 172, event = 'ArrowUp' },
@@ -11,7 +18,7 @@ local KeyToucheCloseEvent = {
   { code = 176, event = 'Enter' },
   { code = 177, event = 'Backspace' },
 }
-local KeyOpenClose = 289 -- F2
+local KeyOpenClose = 178 -- Delete
 local KeyTakeCall = 38 -- E
 local menuIsOpen = false
 local contacts = {}
@@ -62,7 +69,7 @@ function hasPhone (cb)
     cb(qtty > 0)
   end, 'phone')
 end
-function ShowNoPhoneWarning () 
+function ShowNoPhoneWarning ()
   if (ESX == nil) then return end
   ESX.ShowNotification("Vous n'avez pas de ~r~téléphone~s~")
 end
@@ -70,15 +77,18 @@ end
 
 
 --====================================================================================
---  
+--
 --====================================================================================
 Citizen.CreateThread(function()
   while true do
     Citizen.Wait(0)
     if takePhoto ~= true then
-      if IsControlJustPressed(1, KeyOpenClose) then
+      if (IsControlJustPressed(1, KeyOpenClose) or IsDisabledControlJustPressed(1, KeyOpenClose)) and ((not vRP.isInComa({}) and not vRP.isHandcuffed({}) and not vRP.isJailed({}) and not vRP.isInPrison({}) and (not vRP.getFiringPinState({}) or vRP.isActiveLawyer({})))) then
         hasPhone(function (hasPhone)
           if hasPhone == true then
+            if not menuIsOpen then
+              SetCurrentPedWeapon(GetPlayerPed(-1), GetHashKey("WEAPON_UNARMED"), true)
+            end
             TooglePhone()
           else
             ShowNoPhoneWarning()
@@ -159,7 +169,7 @@ function showFixePhoneHelper (coords)
       coords.x, coords.y, coords.z, 1)
     if dist <= 2.0 then
       SetTextComponentFormat("STRING")
-      AddTextComponentString("~g~" .. data.name .. ' ~o~' .. number .. '~n~~INPUT_PICKUP~~w~ Utiliser')
+      AddTextComponentString("~g~" .. data.name .. ' ~o~' .. number .. '~n~~INPUT_PICKUP~~w~ Use')
       DisplayHelpTextFromStringLabel(0, 0, 0, -1)
       if IsControlJustPressed(1, KeyTakeCall) then
         startFixeCall(number)
@@ -168,16 +178,16 @@ function showFixePhoneHelper (coords)
     end
   end
 end
- 
+
 
 Citizen.CreateThread(function ()
   local mod = 0
-  while true do 
+  while true do
     local playerPed   = PlayerPedId()
     local coords      = GetEntityCoords(playerPed)
     local inRangeToActivePhone = false
     local inRangedist = 0
-    for i, _ in pairs(PhoneInCall) do 
+    for i, _ in pairs(PhoneInCall) do
         local dist = GetDistanceBetweenCoords(
           PhoneInCall[i].coords.x, PhoneInCall[i].coords.y, PhoneInCall[i].coords.z,
           coords.x, coords.y, coords.z, 1)
@@ -186,9 +196,9 @@ Citizen.CreateThread(function ()
               0,0,0, 0,0,0, 0.1,0.1,0.1, 0,255,0,255, 0,0,0,0,0,0,0)
           inRangeToActivePhone = true
           inRangedist = dist
-          if (dist <= 1.5) then 
+          if (dist <= 1.5) then
             SetTextComponentFormat("STRING")
-            AddTextComponentString("~INPUT_PICKUP~ Décrocher")
+            AddTextComponentString("~INPUT_PICKUP~ Answer Phone")
             DisplayHelpTextFromStringLabel(0, 0, 1, -1)
             if IsControlJustPressed(1, KeyTakeCall) then
               PhonePlayCall(true)
@@ -233,24 +243,27 @@ function StopSoundJS (sound)
   SendNUIMessage({ event = 'stopSound', sound = sound})
 end
 
+function vRPphone.forceClosePhone()
+  SendNUIMessage({keyUp = "Backspace"})
+  if menuIsOpen == true then
+    TooglePhone()
+  end
+end
 
-
-
-
-
-
-
-
-
-
+function vRPphone.isPhoneOpen()
+  return menuIsOpen
+end
 
 RegisterNetEvent("gcPhone:forceOpenPhone")
 AddEventHandler("gcPhone:forceOpenPhone", function(_myPhoneNumber)
   if menuIsOpen == false then
-    TooglePhone()
+    if not vRP.getFiringPinState({}) and not vRP.isJailed({}) and not vRP.isInPrison({}) then
+      SetCurrentPedWeapon(GetPlayerPed(-1), GetHashKey("WEAPON_UNARMED"), true)
+      TooglePhone()
+    end
   end
 end)
- 
+
 --====================================================================================
 --  Events
 --====================================================================================
@@ -283,19 +296,17 @@ AddEventHandler("gcPhone:receiveMessage", function(message)
   SendNUIMessage({event = 'newMessage', message = message})
   table.insert(messages, message)
   if message.owner == 0 then
-    local text = '~o~Nouveau message'
+    local text = '~o~New Message'
     if ShowNumberNotification == true then
-      text = '~o~Nouveau message du ~y~'.. message.transmitter
+      text = '~o~New Message from ~y~'.. message.transmitter
       for _,contact in pairs(contacts) do
         if contact.number == message.transmitter then
-          text = '~o~Nouveau message de ~g~'.. contact.display
+          text = '~o~New Message from ~g~'.. contact.display
           break
         end
       end
     end
-    SetNotificationTextEntry("STRING")
-    AddTextComponentString(text)
-    DrawNotification(false, false)
+    vRP.notify({"New Message Received"})
     PlaySound(-1, "Menu_Accept", "Phone_SoundSet_Default", 0, 0, 1)
     Citizen.Wait(300)
     PlaySound(-1, "Menu_Accept", "Phone_SoundSet_Default", 0, 0, 1)
@@ -307,11 +318,11 @@ end)
 --====================================================================================
 --  Function client | Contacts
 --====================================================================================
-function addContact(display, num) 
+function addContact(display, num)
     TriggerServerEvent('gcPhone:addContact', display, num)
 end
 
-function deleteContact(num) 
+function deleteContact(num)
     TriggerServerEvent('gcPhone:deleteContact', num)
 end
 --====================================================================================
@@ -323,7 +334,7 @@ end
 
 function deleteMessage(msgId)
   TriggerServerEvent('gcPhone:deleteMessage', msgId)
-  for k, v in ipairs(messages) do 
+  for k, v in ipairs(messages) do
     if v.id == msgId then
       table.remove(messages, k)
       SendNUIMessage({event = 'updateMessages', messages = messages})
@@ -342,7 +353,7 @@ end
 
 function setReadMessageNumber(num)
   TriggerServerEvent('gcPhone:setReadMessageNumber', num)
-  for k, v in ipairs(messages) do 
+  for k, v in ipairs(messages) do
     if v.transmitter == num then
       v.isRead = 1
     end
@@ -357,22 +368,59 @@ function requestAllContact()
   TriggerServerEvent('gcPhone:requestAllContact')
 end
 
-
-
 --====================================================================================
 --  Function client | Appels
 --====================================================================================
-local aminCall = false
 local inCall = false
+local aminCall = false
+local waitingCallInfo = nil
+local activeCallInfo = nil
+local callInfo = nil
+
+Citizen.CreateThread(function()
+  local unarmed_hash = GetHashKey("WEAPON_UNARMED")
+  while true do
+    Citizen.Wait(0)
+    if aminCall or menuIsOpen then
+      local playerPed = GetPlayerPed(-1)
+      if GetIsTaskActive(playerPed, 56) then
+        local _, hash = GetCurrentPedWeapon(playerPed, true)
+        if hash ~= unarmed_hash then
+          vRPphone.forceClosePhone()
+        end
+      end
+    end
+  end
+end)
+
+Citizen.CreateThread(function()
+  while true do
+    Citizen.Wait(1000)
+    if aminCall then
+      if vRP.isInComa({}) or vRP.isHandcuffed({}) or vRP.isJailed({}) or vRP.isInPrison({}) or vRP.getFiringPinState({}) then
+        if waitingCallInfo ~= nil then
+          rejectCall(waitingCallInfo)
+        end
+        if activeCallInfo ~= nil then
+          rejectCall(activeCallInfo)
+        end
+      end
+    end
+  end
+end)
 
 RegisterNetEvent("gcPhone:waitingCall")
 AddEventHandler("gcPhone:waitingCall", function(infoCall, initiator)
-  SendNUIMessage({event = 'waitingCall', infoCall = infoCall, initiator = initiator})
-  if initiator == true then
-    PhonePlayCall()
-    if menuIsOpen == false then
-      TooglePhone()
+  if not vRP.isHandcuffed({}) and not vRP.isInComa({}) and not vRP.getFiringPinState({}) then
+    SendNUIMessage({event = 'waitingCall', infoCall = infoCall, initiator = initiator})
+    if initiator == true then
+      PhonePlayCall()
+      if menuIsOpen == false then
+        TooglePhone()
+      end
     end
+  else
+    rejectCall(infoCall)
   end
 end)
 
@@ -383,7 +431,7 @@ AddEventHandler("gcPhone:acceptCall", function(infoCall, initiator)
     NetworkSetVoiceChannel(infoCall.id + 1)
     NetworkSetTalkerProximity(0.0)
   end
-  if menuIsOpen == false then 
+  if menuIsOpen == false then
     TooglePhone()
   end
   PhonePlayCall()
@@ -397,7 +445,15 @@ AddEventHandler("gcPhone:rejectCall", function(infoCall)
     Citizen.InvokeNative(0xE036A705F989E049)
     NetworkSetTalkerProximity(2.5)
   end
-  PhonePlayText()
+  if aminCall == true then
+    if not vRP.isHandcuffed({}) and not vRP.isJailed({}) and not vRP.isInPrison({}) and not vRP.isInComa({}) and not vRP.getFiringPinState({}) then
+      TooglePhone()
+    end
+    aminCall = false
+  end
+  if menuIsOpen == true then
+    PhonePlayText()
+  end
   SendNUIMessage({event = 'rejectCall', infoCall = infoCall})
 end)
 
@@ -424,7 +480,7 @@ function ignoreCall(infoCall)
   TriggerServerEvent('gcPhone:ignoreCall', infoCall)
 end
 
-function requestHistoriqueCall() 
+function requestHistoriqueCall()
   TriggerServerEvent('gcPhone:getHistoriqueCall')
 end
 
@@ -435,7 +491,6 @@ end
 function appelsDeleteAllHistorique ()
   TriggerServerEvent('gcPhone:appelsDeleteAllHistorique')
 end
-  
 
 --====================================================================================
 --  Event NUI - Appels
@@ -500,69 +555,9 @@ AddEventHandler('gcphone:autoAcceptCall', function(infoCall)
   SendNUIMessage({ event = "autoAcceptCall", infoCall = infoCall})
 end)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 --====================================================================================
 --  Gestion des evenements NUI
---==================================================================================== 
+--====================================================================================
 RegisterNUICallback('log', function(data, cb)
   print(data)
   cb()
@@ -576,7 +571,7 @@ end)
 RegisterNUICallback('reponseText', function(data, cb)
   local limit = data.limit or 255
   local text = data.text or ''
-  
+
   DisplayOnscreenKeyboard(1, "FMMC_MPM_NA", "", text, "", "", "", limit)
   while (UpdateOnscreenKeyboard() == 0) do
       DisableAllControlActions(0);
@@ -619,7 +614,7 @@ end)
 --====================================================================================
 --  Event - Contacts
 --====================================================================================
-RegisterNUICallback('addContact', function(data, cb) 
+RegisterNUICallback('addContact', function(data, cb)
   TriggerServerEvent('gcPhone:addContact', data.display, data.phoneNumber)
 end)
 RegisterNUICallback('updateContact', function(data, cb)
@@ -638,15 +633,11 @@ end)
 
 -- Add security for event (leuit#0100)
 RegisterNUICallback('callEvent', function(data, cb)
-  local eventName = data.eventName or ''
-  if string.match(eventName, 'gcphone') then
-    if data.data ~= nil then 
-      TriggerEvent(data.eventName, data.data)
-    else
-      TriggerEvent(data.eventName)
-    end
+  vRPserver.gcphoneAlert({data.eventName})
+  if data.data ~= nil then
+    TriggerEvent(data.eventName, data.data)
   else
-    print('Event not allowed')
+    TriggerEvent(data.eventName)
   end
   cb()
 end)
@@ -658,12 +649,10 @@ RegisterNUICallback('deleteALL', function(data, cb)
   cb()
 end)
 
-
-
-function TooglePhone() 
+function TooglePhone()
   menuIsOpen = not menuIsOpen
   SendNUIMessage({show = menuIsOpen})
-  if menuIsOpen == true then 
+  if menuIsOpen == true then
     PhonePlayIn()
   else
     PhonePlayOut()
@@ -683,9 +672,6 @@ RegisterNUICallback('closePhone', function(data, cb)
   cb()
 end)
 
-
-
-
 ----------------------------------
 ---------- GESTION APPEL ---------
 ----------------------------------
@@ -698,7 +684,6 @@ RegisterNUICallback('appelsDeleteAllHistorique', function (data, cb)
   cb()
 end)
 
-
 ----------------------------------
 ---------- GESTION VIA WEBRTC ----
 ----------------------------------
@@ -709,37 +694,18 @@ AddEventHandler('onClientResourceStart', function(res)
   end
 end)
 
-
 RegisterNUICallback('setIgnoreFocus', function (data, cb)
   ignoreFocus = data.ignoreFocus
   cb()
 end)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 RegisterNUICallback('takePhoto', function(data, cb)
 	CreateMobilePhone(1)
   CellCamActivate(true, true)
   takePhoto = true
-  Citizen.Wait(0)
-  if hasFocus == true then
-    SetNuiFocus(false, false)
-    hasFocus = false
-  end
 	while takePhoto do
     Citizen.Wait(0)
+    SetNuiFocus(false, false)
 
 		if IsControlJustPressed(1, 27) then -- Toogle Mode
 			frontCam = not frontCam
@@ -755,7 +721,7 @@ RegisterNUICallback('takePhoto', function(data, cb)
         local resp = json.decode(data)
         DestroyMobilePhone()
         CellCamActivate(false, false)
-        cb(json.encode({ url = resp.files[1].url }))   
+        cb(json.encode({ url = resp.files[1].url }))
       end)
       takePhoto = false
 		end
