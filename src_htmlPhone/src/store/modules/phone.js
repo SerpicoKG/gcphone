@@ -12,7 +12,7 @@ const state = {
   mouse: window.localStorage['gc_mouse'] === 'true',
   lang: window.localStorage['gc_language'],
   config: {
-    reseau: 'BLRP',
+    reseau: 'Gannon',
     useFormatNumberFrance: false,
     apps: [],
     themeColor: '#2A56C6',
@@ -151,11 +151,11 @@ const actions = {
     PhoneAPI.closePhone()
   },
   resetPhone ({ dispatch, getters }) {
-    dispatch('setZoon', '80%')
-    dispatch('setVolume', 0.60)
+    dispatch('setZoon', '100%')
+    dispatch('setVolume', 1)
     dispatch('setBackground', getters.config.background_default)
     dispatch('setCoque', getters.config.coque_default)
-    dispatch('setLanguage', 'en_US')
+    dispatch('setLanguage', 'fr_FR')
   }
 }
 

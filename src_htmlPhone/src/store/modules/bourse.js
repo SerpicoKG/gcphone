@@ -29,15 +29,15 @@ if (process.env.NODE_ENV !== 'production') {
   // eslint-disable-next-line
   state.bourseInfo = [{
     difference: 0,
-    libelle: 'Option A',
+    libelle: 'Trest trop long mais bon',
     price: 154.2
   }, {
     difference: 20,
-    libelle: 'Option B',
+    libelle: 'Entre B',
     price: 54.2
   }, {
     difference: -20.5,
-    libelle: 'Option C',
+    libelle: 'Entre C',
     price: 254.2
   }]
 }
