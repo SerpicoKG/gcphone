@@ -151,11 +151,11 @@ const actions = {
     PhoneAPI.closePhone()
   },
   resetPhone ({ dispatch, getters }) {
-    dispatch('setZoon', '100%')
-    dispatch('setVolume', 1)
+    dispatch('setZoon', '80%')
+    dispatch('setVolume', 0.6)
     dispatch('setBackground', getters.config.background_default)
     dispatch('setCoque', getters.config.coque_default)
-    dispatch('setLanguage', 'fr_FR')
+    dispatch('setLanguage', 'en_US')
   }
 }
 
