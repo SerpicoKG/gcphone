@@ -32,7 +32,7 @@ export default {
       const dataNotif = {
         ...event,
         id: this.currentId ++,
-        duration: parseInt(event.duration) || 3000
+        duration: parseInt(event.duration) || 7500
       }
       this.list.push(dataNotif)
       window.setTimeout(() => {
